@@ -13,11 +13,13 @@ int totalPaginas = 0;
 int tablaPaginasMemoria[128][2];
 int tablaPaginasSwap[128][2];
 int top[6] = {-1, -1, -1, -1, -1, -1}; //0: S 1:entranceOrder 2:M 3: MarcosLiberados 4: tablaPaginasMemoria 5:tablaPaginasSwap
-float timeStamp = 0;
+float timeStamp[128][2];
 int algRemplazo = 0; //Si es 0 es FIFO, si es 1 es LRU
-int pageFaults = 0;
+int pageFaults[128][2];
 int totalSwapOut = 0;
 int totalSwapIn = 0;
+int totalProcess = 0;
+float turnAroundPromedio = 0;
 
 int isempty(int t) {
 
@@ -123,7 +125,13 @@ void swapIn(int toSwap, int size)
       tablaPaginasSwap[i][1] = tablaPaginasSwap[i + 1][1];
      }
   }
-  timeStamp++;
+  for(int i = 0; i  < 128; i++)
+  {
+     if(timeStamp[i][0] == toSwap)
+     {
+        timeStamp[i][1]++;
+     }
+  }
   totalSwapIn++;
 }
 
@@ -196,8 +204,17 @@ void swapOut(int toSwap, int size)
       }
       i++;
     }
-  timeStamp++;
-  pageFaults++;
+  for(int i = 0; i  < 128; i++)
+  {
+     if(timeStamp[i][0] == toSwap)
+     {
+        timeStamp[i][1]++;
+     }
+     if(pageFaults[i][0] == toSwap)
+     {
+        pageFaults[i][1]++;
+     }
+  }
   totalSwapOut++;
    for(int j = 0; j < 128;j++)
   {
@@ -226,6 +243,8 @@ void P(int args[])
   int i = 0;
   int contador = 0;
   int contAssign = 0;
+  int paginasAsignadas[128];
+  int paginasProcess = 0;
   if(indexOf(S, args[1]) >= 0)
   {
     push(entranceOrder, args[1], 1);
@@ -234,6 +253,12 @@ void P(int args[])
   }
   else if(indexOf(M, args[1]) < 0)
   {  
+    timeStamp[totalProcess][0] = args[1];
+    timeStamp[totalProcess][1] = 1;
+    pageFaults[totalProcess][0] = args[1];
+    pageFaults[totalProcess][1] = 0;
+    totalProcess++;
+
     if (spacesNeeded <= marcosLibres)
     {
       push(entranceOrder, args[1], 1);
@@ -246,19 +271,27 @@ void P(int args[])
 	  M[i] = args[1];
 	  if(contador % 16 == 0)
 	  {
+            paginasAsignadas[paginasProcess] = (i / 16) + 1;
 	    tablaPaginasMemoria[totalPaginas][0] = args[1];
-	    tablaPaginasMemoria[totalPaginas][1] = contador / 16;
+	    tablaPaginasMemoria[totalPaginas][1] = paginasProcess + 1;
+            paginasProcess++;
 	    totalPaginas++;
 	  }
         }
-        if((contador / 16) >= spacesNeeded)
+        if(paginasProcess >= spacesNeeded)
         {
             break;
         }
         i++;
       }
       bitRef = i;
-      marcosLibres -= args[0] / 16;
+      marcosLibres -= paginasProcess;
+      printf("Se le asignaron al proceso %d los marcos de pagina: %d", args[1], paginasAsignadas[0]);
+      for(int i = 1; i < paginasProcess; i++)
+      {
+        printf(", %d", paginasAsignadas[i]);
+      }
+      printf("\n");
     }
     else
     {
@@ -267,7 +300,7 @@ void P(int args[])
       //swapIn(args[1]);
     }
   }
-  printMemory();
+ // printMemory();
   for(int j = 0; j < 128;j++)
   {
     printf("Memoria: [%d][%d]\n", tablaPaginasMemoria[j][0], tablaPaginasMemoria[j][1]);
@@ -341,6 +374,13 @@ void A(int args[])
   }
    }
  }
+  for(int i = 0; i  < 128; i++)
+  {
+     if(timeStamp[i][0] == args[1])
+     {
+        timeStamp[i][1] += 0.1;
+     }
+  }
 }
 
 void L(int toRemove)
@@ -396,13 +436,25 @@ void L(int toRemove)
 void F()
 {
   //print turnaround time
-  printf("Total Page Faults: %d", pageFaults);
-  pageFaults = 0;
-  printf("Total Swap-out: %d", totalSwapOut);
-  printf("Total Swap-in: %d", totalSwapIn);
+   
+  for(int i = 0; i < 128; i++)
+  { 
+    turnAroundPromedio += timeStamp[i][1];
+    if(pageFaults[i][0])
+    {
+      printf("Total Page Faults for process %d: %d\n", pageFaults[i][0], pageFaults[i][1]);
+      //pageFaults[i][0] = 0;
+      //pageFaults[i][1] = 0;
+    }
+  }
+  turnAroundPromedio /= totalProcess;
+  printf("Turnaround promedio: %f\n", turnAroundPromedio);
+  turnAroundPromedio = 0;
+  printf("Total Swap-out: %d\n", totalSwapOut);
+  printf("Total Swap-in: %d\n", totalSwapIn);
   totalSwapOut = 0;
   totalSwapIn = 0;
-  while(!isempty(0))
+  /*while(!isempty(0))
   {
     pop(S, 0);
   }
@@ -413,7 +465,7 @@ void F()
   while(!isempty(2))
   {
     pop(M, 0);
-  }
+  }*/
 }
 
 void menu()
@@ -424,10 +476,12 @@ void menu()
 
   while(cont)
   {
-    scanf("%c %[^\n]%*c", &opr, message);
+    scanf("%[^\n]%*c", message);
     int args[4];
     char *split = strtok(message," ");
     int i = 0;
+    opr = *split;
+    split = strtok(NULL," ");
     while(split != NULL)
     {
       args[i] = atoi(split);
