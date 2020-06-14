@@ -85,16 +85,11 @@ int indexOf(int array[], int c) {
     return pos;
 }
 
-
-void swapIn(int toSwap, int size)
+void corrimientoS(int toSwap, int size)
 {
-  if(!algRemplazo)
-  {
-    int move = 0;
-    int s = 0;
-    int swapCount = 0;
-    int pos = 0;
-    for(int i = 0;;i++)
+  int swapCount = 0;
+  int move = 0;
+  for(int i = 0;;i++)
     {
       if(S[i] == toSwap)
       {
@@ -109,7 +104,15 @@ void swapIn(int toSwap, int size)
       {
         break;
       }  
-    }
+  }
+}
+
+void swapIn(int toSwap, int size)
+{
+  if(!algRemplazo)
+  {
+    
+    corrimientoS(toSwap, size);
     for(int j = 0; j < 128; j++)
     {
       if(tablaPaginasSwap[j][0] == toSwap)
@@ -139,6 +142,8 @@ void swapOut(int toSwap, int size)
 {
   int swapCount = 0;
   int toCompare = 0;
+  int paginaSwapeada = 0;
+  int direccionSwapeada = 0;
   if(entranceOrder[0] == toSwap)
   {
     toCompare = entranceOrder[1];
@@ -163,6 +168,7 @@ void swapOut(int toSwap, int size)
            {
              if(!tablaPaginasSwap[j][0])
              {
+               //paginaSwapeada = i / 16;
                tablaPaginasSwap[j][0] = M[i];
                tablaPaginasSwap[j][1] = i / 16;
                break;
@@ -194,6 +200,7 @@ void swapOut(int toSwap, int size)
         swapCount++;
         if(swapCount % 16 == 0)
         {
+           //direccionSwapeada = i / 16;
            tablaPaginasMemoria[i / 16][0] = toSwap;
            tablaPaginasMemoria[i / 16][1] = swapCount / 16;
         }
@@ -216,10 +223,10 @@ void swapOut(int toSwap, int size)
      }
   }
   totalSwapOut++;
-   for(int j = 0; j < 128;j++)
+  /* for(int j = 0; j < 128;j++)
   {
     printf("Swap: [%d][%d]\n", tablaPaginasSwap[j][0], tablaPaginasSwap[j][1]);
-  }  
+  } */ 
 }
 
 void printMemory()
@@ -233,6 +240,21 @@ void printMemory()
      else
      {
         printf("%d\n", M[i]);
+     }
+  }
+}
+
+void printSwap()
+{
+  for(int i = 0; i < 4096; i++)
+  {
+     if(!S[i])
+     {
+        printf("*\n");
+     }
+     else
+     {
+        printf("%d\n", S[i]);
      }
   }
 }
@@ -301,10 +323,10 @@ void P(int args[])
     }
   }
  // printMemory();
-  for(int j = 0; j < 128;j++)
+  /*for(int j = 0; j < 128;j++)
   {
     printf("Memoria: [%d][%d]\n", tablaPaginasMemoria[j][0], tablaPaginasMemoria[j][1]);
-  }  
+  } */ 
 }
 
 void A(int args[])
@@ -330,7 +352,7 @@ void A(int args[])
       found = 1;
       if(args[2] == 1)
       {
-         printf("Pagina %d del proceso %d modificada\n", args[0], (i * 16) + 1);
+         printf("Pagina %d del proceso %d modificada\n", args[0], args[1]);
       }
       printf("Direccion virtual: %d, Direccion real: %d\n", args[0], (i * 16) + 1);
       break;
@@ -349,16 +371,31 @@ void A(int args[])
           {
             tablaPaginasMemoria[j][0] = tablaPaginasSwap[i][0];
             tablaPaginasMemoria[j][1] = tablaPaginasSwap[i][1];
-            for(int k = 0; k < 16; k++)
+            //tablaPaginasSwap[i][0] = 0;
+            //tablaPaginasSwap[i][1] = 0;
+            int k = 0;
+            for(k = 0; k < 16; k++)
             {
-               M[k*j] = tablaPaginasMemoria[j][0];
+               M[k+j] = tablaPaginasMemoria[j][0];
+               S[i+k-1] = 0;
             }
+             //S[i+k-1] = 0;
             break;
           }
         }
       }
     }
-    swapIn(args[1], args[0]);
+    //swapIn(args[1], args[0] * 16);
+    for(int i = 0; i < 128; i++)
+    {
+      tablaPaginasSwap[i][0] = tablaPaginasSwap[i + 1][0];
+      tablaPaginasSwap[i][1] = tablaPaginasSwap[i + 1][1];
+       if(timeStamp[i][0] == args[1])
+       {
+          timeStamp[i][1]++;
+       }
+    }
+    totalSwapIn++;
     for(int i = 0; i < 128; i++)
   {
     if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == args[0])
@@ -371,6 +408,7 @@ void A(int args[])
       printf("Direccion virtual: %d, Direccion real: %d\n", args[0], (i * 16) + 1);
       break;
     }
+    
   }
    }
  }
@@ -381,6 +419,7 @@ void A(int args[])
         timeStamp[i][1] += 0.1;
      }
   }
+  //printSwap();
 }
 
 void L(int toRemove)
@@ -401,12 +440,12 @@ void L(int toRemove)
   removedCounter = 0;
   if (!isempty(3))
   {
-    printf("Marcos liberados de memoria: %d", pop(marcosLiberados, 3));
+    printf("Marcos liberados de memoria: %d", pop(marcosLiberados, 3) + 1);
     marcosLibres++;
   }
   while(!isempty(3))
   {
-    printf(", %d", pop(marcosLiberados, 3));
+    printf(", %d", pop(marcosLiberados, 3) + 1);
     marcosLibres++;
   }
   printf("\n");
@@ -424,11 +463,11 @@ void L(int toRemove)
   }
   if (!isempty(3))
   {
-    printf("Marcos liberados de area de swapping: %d", pop(marcosLiberados, 3));
+    printf("Marcos liberados de area de swapping: %d", pop(marcosLiberados, 3) + 1);
   }
   while(!isempty(3))
   {
-    printf(", %d", pop(marcosLiberados, 3));
+    printf(", %d", pop(marcosLiberados, 3) + 1);
   }
   printf("\n");
 }
@@ -468,52 +507,68 @@ void F()
   }*/
 }
 
-void menu()
+void menu(char message[])
 {
   char opr;
-  char message[100];
-  int cont = 1;
-
-  while(cont)
+  //scanf("%[^\n]%*c", message);
+  int args[4];
+  char *split = strtok(message," ");
+  int i = 0;
+  opr = *split;
+  split = strtok(NULL," ");
+  while(split != NULL)
   {
-    scanf("%[^\n]%*c", message);
-    int args[4];
-    char *split = strtok(message," ");
-    int i = 0;
-    opr = *split;
-    split = strtok(NULL," ");
-    while(split != NULL)
-    {
-      args[i] = atoi(split);
-      split=strtok(NULL," ");
-      i++;
-    }
-    switch(opr)
-    { 
-      case 'P':
-       P(args);
-      break;
-     case 'A':
-       A(args);
-     break;
-     case 'L':
-        L(args[0]);
-     break;
-     case 'C':
-       printf("%s \n", message);
-     break;
-     case 'F':
-       F();
-     break;
-     case 'E':
-       printf("Adios\n");
-       cont = 0;
-     break;
-    }
+    args[i] = atoi(split);
+    split=strtok(NULL," ");
+    i++;
   }
+  switch(opr)
+  { 
+    case 'P':
+      P(args);
+    break;
+    case 'A':
+      A(args);
+    break;
+    case 'L':
+      L(args[0]);
+    break;
+    case 'C':
+      printf("%s \n", message);
+    break;
+    case 'F':
+      F();
+    break;
+    case 'E':
+      printf("Adios\n");
+      exit(1);
+    break;
+  }
+}
+
+void readFile()
+{
+    FILE * fp;
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+
+    fp = fopen("archivoPrueba.txt", "r");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+
+    while ((read = getline(&line, &len, fp)) != -1) {
+        printf("%s\n", line);
+        menu(line);
+    }
+
+    fclose(fp);
+    if (line)
+        free(line);
+    exit(EXIT_SUCCESS);
 }
 
 void main()
 {
-  menu();
+  readFile();
 }
