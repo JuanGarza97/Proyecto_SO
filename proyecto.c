@@ -11,7 +11,7 @@ int bitRef = 0;
 int entranceOrder[2048];
 int totalPaginas = 0;
 int tablaPaginasMemoria[128][2];
-int tablaPaginasSwap[128][128];
+int tablaPaginasSwap[128][2];
 int top[6] = {-1, -1, -1, -1, -1, -1}; //0: S 1:entranceOrder 2:M 3: MarcosLiberados 4: tablaPaginasMemoria 5:tablaPaginasSwap
 float timeStamp = 0;
 int algRemplazo = 0; //Si es 0 es FIFO, si es 1 es LRU
