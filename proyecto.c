@@ -20,6 +20,8 @@ int totalSwapOut = 0;
 int totalSwapIn = 0;
 int totalProcess = 0;
 float turnAroundPromedio = 0;
+int usedTime[128][2];
+int end = 0;
 
 int isempty(int t) {
 
@@ -85,6 +87,94 @@ int indexOf(int array[], int c) {
     return pos;
 }
 
+void setUsedTime(int toSet, int s)
+{
+  for(int i = 0; i < 128; i++)
+  {
+     if(usedTime[i][0] == toSet)
+     {
+        usedTime[i][1] = s;
+        break;
+     }
+  }  
+}
+
+void restartUsedTime(int toRestart)
+{
+  setUsedTime(toRestart, 0);
+}
+
+void incrementUsedTime()
+{
+  for(int i = 0; i < 128; i++)
+  {
+//     if(usedTime[i][0] == toIncrement)
+  //   {
+        if(usedTime[i][1])
+        {
+          usedTime[i][1]++;
+        }
+    // }
+  }  
+}
+
+int whoIsFirst(int s1 ,int s2)
+{
+  int first = 0;
+  for(int i = 0; i < 128; i++)
+  {
+    if(entranceOrder[i] == s1)
+    {
+       first = s1;
+       break;
+    }
+    else if(entranceOrder[i] == s2)
+    {
+       first = s2;
+       break;
+    }
+  } 
+  return first;
+}
+
+int getLeastUsed(int toCheck)
+{
+  int least = 0;
+  int leastTime = 0;
+  int lastLeast = 0;
+  for(int i = 0; i < 128; i++)
+  {
+    if(usedTime[i][0])
+    {
+      if(!least)
+      {
+         least = usedTime[i][0];
+         leastTime = usedTime[i][1];
+      }
+      else if(usedTime[i][1] <= leastTime)
+      {
+         if(usedTime[i][1] == leastTime)
+         {
+            lastLeast = least;
+            least = whoIsFirst(usedTime[i][0], least);
+            if (least == usedTime[i][0])
+            { 
+               leastTime = usedTime[i][1];
+            }
+         }
+      }
+    }
+  }
+  if(least == toCheck)
+  {
+    least = lastLeast;
+  }
+  return least;
+}
+
+
+
+
 void corrimientoS(int toSwap, int size)
 {
   int swapCount = 0;
@@ -109,9 +199,6 @@ void corrimientoS(int toSwap, int size)
 
 void swapIn(int toSwap, int size)
 {
-  if(!algRemplazo)
-  {
-    
     corrimientoS(toSwap, size);
     for(int j = 0; j < 128; j++)
     {
@@ -127,7 +214,6 @@ void swapIn(int toSwap, int size)
       tablaPaginasSwap[i][0] = tablaPaginasSwap[i + 1][0]; 
       tablaPaginasSwap[i][1] = tablaPaginasSwap[i + 1][1];
      }
-  }
   for(int i = 0; i  < 128; i++)
   {
      if(timeStamp[i][0] == toSwap)
@@ -142,19 +228,26 @@ void swapOut(int toSwap, int size)
 {
   int swapCount = 0;
   int toCompare = 0;
-  int paginaSwapeada = 0;
-  int direccionSwapeada = 0;
-  if(entranceOrder[0] == toSwap)
+  int paginaSwapeadas[128];
+  int direccionSwapeada[128];
+  int paginasAsignadas[128];
+  int paginasProcess = 0;
+  if(!algRemplazo)
   {
-    toCompare = entranceOrder[1];
+    if(entranceOrder[0] == toSwap)
+    {
+      toCompare = entranceOrder[1];
+    }
+    else
+    {
+      toCompare = entranceOrder[0];
+    } 
   }
   else
   {
-    toCompare = entranceOrder[0];
-  } 
-  if(!algRemplazo)
-  {
-    int s = 0;
+     toCompare = getLeastUsed(toSwap);
+  }
+  int s = 0;
     for(int i = 0; i < 2048;i++)
     {
       if(M[i] == toCompare)
@@ -168,14 +261,14 @@ void swapOut(int toSwap, int size)
            {
              if(!tablaPaginasSwap[j][0])
              {
-               //paginaSwapeada = i / 16;
                tablaPaginasSwap[j][0] = M[i];
                tablaPaginasSwap[j][1] = i / 16;
+               paginaSwapeadas[swapCount] = i / 16 + 1;
+               direccionSwapeada[swapCount] = j;
+               swapCount++;
                break;
              }
            } 
-           //push(tablaPaginasSwap[0], M[i], 5);
-           //push(tablaPaginasSwap[1], (i / 16), 5);
          }
          M[i] = 0;
          s++;
@@ -190,8 +283,12 @@ void swapOut(int toSwap, int size)
     {
       removeTop();
     }
+  for(int i = 0; i < swapCount; i++)
+  {
+     printf("Pagina %d del proceso %d swappeada al marco %d del área de swapping\n", paginaSwapeadas[i], toCompare, direccionSwapeada[i]);
   }
   int i = 0;
+    swapCount = 0;
     while(1)
     {
       if(!M[i])
@@ -200,9 +297,10 @@ void swapOut(int toSwap, int size)
         swapCount++;
         if(swapCount % 16 == 0)
         {
-           //direccionSwapeada = i / 16;
+           paginasAsignadas[paginasProcess] = (i / 16) + 1;
            tablaPaginasMemoria[i / 16][0] = toSwap;
            tablaPaginasMemoria[i / 16][1] = swapCount / 16;
+           paginasProcess++;
         }
         if(swapCount >= size)
         {
@@ -222,11 +320,21 @@ void swapOut(int toSwap, int size)
         pageFaults[i][1]++;
      }
   }
-  totalSwapOut++;
-  /* for(int j = 0; j < 128;j++)
+  if(paginasAsignadas[0])
   {
-    printf("Swap: [%d][%d]\n", tablaPaginasSwap[j][0], tablaPaginasSwap[j][1]);
-  } */ 
+    printf("Se le asignaron al proceso %d los marcos de pagina: %d", toSwap, paginasAsignadas[0]);
+    for(int i = 1; i < size / 16; i++)
+    {
+      if(!paginasAsignadas[i])
+      {
+        break;
+      }
+      printf(", %d", paginasAsignadas[i]);
+    }
+    printf("\n");
+  }
+  totalSwapOut++;
+  restartUsedTime(toCompare); 
 }
 
 void printMemory()
@@ -259,6 +367,7 @@ void printSwap()
   }
 }
 
+
 void P(int args[])
 {
   int spacesNeeded = ((args[0] / 16) + (args[1] % 16 != 0)) - 1;
@@ -279,6 +388,8 @@ void P(int args[])
     timeStamp[totalProcess][1] = 1;
     pageFaults[totalProcess][0] = args[1];
     pageFaults[totalProcess][1] = 0;
+    usedTime[totalProcess][0] = args[1];
+    usedTime[totalProcess][1] = 1;
     totalProcess++;
 
     if (spacesNeeded <= marcosLibres)
@@ -308,25 +419,23 @@ void P(int args[])
       }
       bitRef = i;
       marcosLibres -= paginasProcess;
-      printf("Se le asignaron al proceso %d los marcos de pagina: %d", args[1], paginasAsignadas[0]);
-      for(int i = 1; i < paginasProcess; i++)
+      if(paginasAsignadas[0])
       {
-        printf(", %d", paginasAsignadas[i]);
+        printf("Se le asignaron al proceso %d los marcos de pagina: %d", args[1], paginasAsignadas[0]);
+        for(int i = 1; i < paginasProcess; i++)
+        {
+          printf(", %d", paginasAsignadas[i]);
+        }
+        printf("\n");
       }
-      printf("\n");
     }
     else
     {
       push(entranceOrder, args[1], 1);
       swapOut(args[1], args[0]);
-      //swapIn(args[1]);
     }
   }
- // printMemory();
-  /*for(int j = 0; j < 128;j++)
-  {
-    printf("Memoria: [%d][%d]\n", tablaPaginasMemoria[j][0], tablaPaginasMemoria[j][1]);
-  } */ 
+  incrementUsedTime();
 }
 
 void A(int args[])
@@ -335,16 +444,23 @@ void A(int args[])
   int found = 0;
   int toCompare = 0;
   int toSwap = args[1];
-  if(entranceOrder[0] == toSwap)
+  int tablasPaginaRemplazo[128][2];
+  if(!algRemplazo)
   {
-    toCompare = entranceOrder[1];
+    if(entranceOrder[0] == toSwap)
+    {
+      toCompare = entranceOrder[1];
+    }
+    else
+    {
+      toCompare = entranceOrder[0];
+    } 
   }
   else
   {
-    toCompare = entranceOrder[0];
-  } 
-  if(!algRemplazo)
-  {
+     toCompare = getLeastUsed(toSwap);
+  }
+  setUsedTime(toCompare, 1);
   for(int i = 0; i < 128; i++)
   {
     if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == args[0])
@@ -354,12 +470,13 @@ void A(int args[])
       {
          printf("Pagina %d del proceso %d modificada\n", args[0], args[1]);
       }
-      printf("Direccion virtual: %d, Direccion real: %d\n", args[0], (i * 16) + 1);
+      printf("Direccion virtual: %d, Direccion real: %d\n", args[0], i + 1);
       break;
     }
   }
   if(!found)
-  {
+  {  
+    //swapIn(args[1], args[0]);
     for(int i = 0; i < 128; i++)
     {
       if(tablaPaginasSwap[i][0] == args[1] && tablaPaginasSwap[i][1] == args[0])
@@ -369,23 +486,21 @@ void A(int args[])
         {
           if(tablaPaginasMemoria[j][0] == toCompare)
           {
+            //tablaPaginaRemplazo[j][0] = tablaPaginasMemoria[j][0]
+            //tablaPaginaRemplazo[j][1] = tablaPaginasMemoria[j][1]
             tablaPaginasMemoria[j][0] = tablaPaginasSwap[i][0];
             tablaPaginasMemoria[j][1] = tablaPaginasSwap[i][1];
-            //tablaPaginasSwap[i][0] = 0;
-            //tablaPaginasSwap[i][1] = 0;
             int k = 0;
             for(k = 0; k < 16; k++)
             {
                M[k+j] = tablaPaginasMemoria[j][0];
                S[i+k-1] = 0;
             }
-             //S[i+k-1] = 0;
             break;
           }
         }
       }
     }
-    //swapIn(args[1], args[0] * 16);
     for(int i = 0; i < 128; i++)
     {
       tablaPaginasSwap[i][0] = tablaPaginasSwap[i + 1][0];
@@ -401,17 +516,17 @@ void A(int args[])
     if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == args[0])
     {
       found = 1;
+      printf("Pagina %d del proceso %d regresada al marco de memoria %d\n", args[0], args[1], i + 1);
       if(args[2] == 1)
       {
-         printf("Pagina %d del proceso %d modificada\n", args[0], (i * 16) + 1);
+         printf("Pagina %d del proceso %d modificada\n", args[0], args[1]);
       }
-      printf("Direccion virtual: %d, Direccion real: %d\n", args[0], (i * 16) + 1);
+      printf("Direccion virtual: %d, Direccion real: %d\n", args[0], i + 1);
       break;
     }
     
   }
    }
- }
   for(int i = 0; i  < 128; i++)
   {
      if(timeStamp[i][0] == args[1])
@@ -419,7 +534,6 @@ void A(int args[])
         timeStamp[i][1] += 0.1;
      }
   }
-  //printSwap();
 }
 
 void L(int toRemove)
@@ -443,6 +557,7 @@ void L(int toRemove)
     printf("Marcos liberados de memoria: %d", pop(marcosLiberados, 3) + 1);
     marcosLibres++;
   }
+
   while(!isempty(3))
   {
     printf(", %d", pop(marcosLiberados, 3) + 1);
@@ -461,13 +576,18 @@ void L(int toRemove)
       }
     }
   }
-  if (!isempty(3))
+  if(!isempty(3))
   {
-    printf("Marcos liberados de area de swapping: %d", pop(marcosLiberados, 3) + 1);
+    printf("Marcos liberados de area de swapping: %d", pop(marcosLiberados, 3));
   }
+  int toPrint = 0;
   while(!isempty(3))
   {
-    printf(", %d", pop(marcosLiberados, 3) + 1);
+    toPrint = pop(marcosLiberados, 3);
+    if(toPrint)
+    {
+      printf(", %d", toPrint);
+    }
   }
   printf("\n");
 }
@@ -507,42 +627,78 @@ void F()
   }*/
 }
 
+void E()
+{
+  printf("Adios");
+  end = 1;
+  marcosLibres = 128;
+  marcosLiberados[256];
+  bitRef = 0;
+  while(!isempty(1))
+  {
+    pop(entranceOrder, 1);
+  }
+  totalPaginas = 0;
+  for(int j = 0; j < 2; j++)
+  {
+    for(int i = 0; i < 128; i++)
+    {
+      tablaPaginasMemoria[i][j] = 0;
+      tablaPaginasSwap[i][j] = 0;
+      timeStamp[i][j] = 0;
+      pageFaults[i][j] = 0;
+      usedTime[i][j] = 0;
+    }
+  }
+  for(int i = 0; i < 6; i++)
+  {
+    top[i] = -1;
+  }
+  totalSwapOut = 0;
+  totalSwapIn = 0;
+  totalProcess = 0;
+  turnAroundPromedio = 0;
+
+}
+
 void menu(char message[])
 {
-  char opr;
-  //scanf("%[^\n]%*c", message);
-  int args[4];
-  char *split = strtok(message," ");
-  int i = 0;
-  opr = *split;
-  split = strtok(NULL," ");
-  while(split != NULL)
+  if(!end)
   {
-    args[i] = atoi(split);
-    split=strtok(NULL," ");
-    i++;
-  }
-  switch(opr)
-  { 
-    case 'P':
-      P(args);
-    break;
-    case 'A':
-      A(args);
-    break;
-    case 'L':
-      L(args[0]);
-    break;
-    case 'C':
-      printf("%s \n", message);
-    break;
-    case 'F':
-      F();
-    break;
-    case 'E':
-      printf("Adios\n");
-      exit(1);
-    break;
+    char opr;
+    //scanf("%[^\n]%*c", message);
+    int args[4];
+    char *split = strtok(message," ");
+    int i = 0;
+    opr = *split;
+    split = strtok(NULL," ");
+    while(split != NULL)
+    {
+      args[i] = atoi(split);
+      split=strtok(NULL," ");
+      i++;
+    }
+    switch(opr)
+    { 
+      case 'P':
+        P(args);
+      break;
+      case 'A':
+        A(args);
+      break;
+      case 'L':
+        L(args[0]);
+      break;
+      case 'C':
+        printf("%s \n", message);
+      break;
+      case 'F':
+        F();
+      break;
+      case 'E':
+        E();
+      break;
+    }
   }
 }
 
@@ -565,10 +721,15 @@ void readFile()
     fclose(fp);
     if (line)
         free(line);
-    exit(EXIT_SUCCESS);
+    //exit(EXIT_SUCCESS);
 }
 
 void main()
 {
+  printf("Algoritmo FIFO\n");
+  readFile();
+  algRemplazo = 1;
+  end = 0;
+  printf("Algoritmo LRU\n");
   readFile();
 }
