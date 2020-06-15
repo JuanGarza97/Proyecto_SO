@@ -445,6 +445,7 @@ void A(int args[])
   int toCompare = 0;
   int toSwap = args[1];
   int tablasPaginaRemplazo[128][2];
+  int toCheck = 0;
   if(!algRemplazo)
   {
     if(entranceOrder[0] == toSwap)
@@ -461,9 +462,17 @@ void A(int args[])
      toCompare = getLeastUsed(toSwap);
   }
   setUsedTime(toCompare, 1);
+  if(args[0] / 16 <= 0)
+  {
+     toCheck = 1;
+  }
+  else
+  {
+     toCheck = args[0] / 16;
+  }
   for(int i = 0; i < 128; i++)
   {
-    if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == args[0])
+    if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == toCheck)
     {
       found = 1;
       if(args[2] == 1)
@@ -479,7 +488,7 @@ void A(int args[])
     //swapIn(args[1], args[0]);
     for(int i = 0; i < 128; i++)
     {
-      if(tablaPaginasSwap[i][0] == args[1] && tablaPaginasSwap[i][1] == args[0])
+      if(tablaPaginasSwap[i][0] == args[1] && tablaPaginasSwap[i][1] == toCheck)
       {
         found = 1;
         for(int j = 0; j < 128; j++)
@@ -513,7 +522,7 @@ void A(int args[])
     totalSwapIn++;
     for(int i = 0; i < 128; i++)
   {
-    if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == args[0])
+    if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == toCheck)
     {
       found = 1;
       printf("Pagina %d del proceso %d regresada al marco de memoria %d\n", args[0], args[1], i + 1);
@@ -527,6 +536,10 @@ void A(int args[])
     
   }
    }
+  if(!found)
+  {
+    printf("No se encontro al proceso %d en el memoria ni en el area de swapping\n", args[1]);
+  }
   for(int i = 0; i  < 128; i++)
   {
      if(timeStamp[i][0] == args[1])
@@ -557,6 +570,10 @@ void L(int toRemove)
     printf("Marcos liberados de memoria: %d", pop(marcosLiberados, 3) + 1);
     marcosLibres++;
   }
+  else
+  {
+    printf("No se encontro el proceso %d en memoria\n", toRemove);
+  }
 
   while(!isempty(3))
   {
@@ -579,6 +596,10 @@ void L(int toRemove)
   if(!isempty(3))
   {
     printf("Marcos liberados de area de swapping: %d", pop(marcosLiberados, 3));
+  }
+  else
+  {
+    printf("No se encontro el proceso %d en el area de swapping\n", toRemove);
   }
   int toPrint = 0;
   while(!isempty(3))
@@ -629,7 +650,7 @@ void F()
 
 void E()
 {
-  printf("Adios");
+  printf("Adios\n");
   end = 1;
   marcosLibres = 128;
   marcosLiberados[256];
@@ -649,6 +670,14 @@ void E()
       pageFaults[i][j] = 0;
       usedTime[i][j] = 0;
     }
+  }
+  for(int i = 0; i < 2048;i++)
+  {
+    M[i] = 0;
+  }
+  for(int i = 0; i < 4096; i++)
+  {
+    S[i] = 0;
   }
   for(int i = 0; i < 6; i++)
   {
@@ -709,7 +738,7 @@ void readFile()
     size_t len = 0;
     ssize_t read;
 
-    fp = fopen("archivoPrueba.txt", "r");
+    fp = fopen("ArchivoTrabajo-1.txt", "r");
     if (fp == NULL)
         exit(EXIT_FAILURE);
 
