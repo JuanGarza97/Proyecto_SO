@@ -2,28 +2,31 @@
 #include<stdlib.h>
 #include<string.h>
 
-int M[2048];
-int S[4096];
+#define Marcos 128
+#define tamanoPagina 16
 
-int marcosLibres = 128;
-int marcosLiberados[256];
-int bitRef = 0;
-int entranceOrder[2048];
-int totalPaginas = 0;
-int tablaPaginasMemoria[128][2];
-int tablaPaginasSwap[128][2];
-int top[6] = {-1, -1, -1, -1, -1, -1}; //0: S 1:entranceOrder 2:M 3: MarcosLiberados 4: tablaPaginasMemoria 5:tablaPaginasSwap
-float timeStamp[128][2];
+int M[Marcos*tamanoPagina]; //arreglo de Memoria
+int S[Marcos*tamanoPagina*2]; //arreglo de area de swapping
+
+int marcosLibres = Marcos;  //cantidad de marcosLibres
+int marcosLiberados[Marcos]; //marcos que se han liberado
+int bitRef = 0; //bit de referencia
+int entranceOrder[Marcos*tamanoPagina]; //Marca el orden de entrada, se utiliza para el algoritmo FIFO
+int totalPaginas = 0; //Total de paginas asignadas
+int tablaPaginasMemoria[Marcos][2]; //arreglo de tabla paginas de memoria donde la primer columna indica el proceso y la segunda la pagina
+int tablaPaginasSwap[Marcos][2];  //arreglo de tabla paginas de memoria donde la primer columna indica el proceso y la segunda la pagina
+int top[6] = {-1, -1, -1, -1, -1, -1}; //Indica el top de las pilas 0: S 1:entranceOrder 2:M 3: MarcosLiberados 4: tablaPaginasMemoria 5:tablaPaginasSwap
+float timeStamp[Marcos][2]; //tiempo total en memoria de los procesos
 int algRemplazo = 0; //Si es 0 es FIFO, si es 1 es LRU
-int pageFaults[128][2];
-int totalSwapOut = 0;
-int totalSwapIn = 0;
-int totalProcess = 0;
-float turnAroundPromedio = 0;
-int usedTime[128][2];
-int end = 0;
+int pageFaults[Marcos][2]; //page faults por proceso
+int totalSwapOut = 0; //Total de swap-outs realizados
+int totalSwapIn = 0; //Total de swap-in realizados
+int totalProcess = 0; //Total de procesos
+float turnAroundPromedio = 0; //Turnaround promedio
+int usedTime[Marcos][2]; //Tiempo en el que los procesos han estado en memoria, se reinicia cada vez que el proceso se va al area de swapping. Esto se utiliza para el LRU
+int end = 0; //Booleano para indicar que termino el programa
 
-int isempty(int t) {
+int isempty(int t) { //Esta funcion sirve para checar si el arreglo indicado se enuentra vacio
 
    if(top[t] == -1)
       return 1;
@@ -31,19 +34,30 @@ int isempty(int t) {
       return 0;
 }
    
-int isfull(int t) {
+int isfull(int t) { //Esta funcion sirve para checar si el arreglo indicado se encuentra lleno
 
-   if(top[t] == 4096)
+   int toCompare = Marcos;
+   switch(t)
+   {
+     case 0:
+       toCompare = Marcos*tamanoPagina*2;
+     break;
+     case 1:
+     case 2:
+       toCompare = Marcos*tamanoPagina;
+     break;
+     case 3:
+       toCompare = Marcos;
+     break;
+   }
+     
+   if(top[t] == toCompare)
       return 1;
    else
       return 0;
 }
 
-int peek(int array[], int t) {
-   return array[top[t]];
-}
-
-void removeTop(){
+void removeTop(){ //Esta funcion se utiliza al momento de checar cual es el proceso que llego primero. Utilizado en el algoritmo FIFO
   int i = 0;
   while(entranceOrder[i])
   {
@@ -53,7 +67,7 @@ void removeTop(){
   top[1] = top[1] - 1;
 }
 
-int pop(int array[], int t) {
+int pop(int array[], int t) { //Esta funcion saca el ultimo elemento de una pila y lo regresa
    int data;
 	
    if(!isempty(t)) {
@@ -65,20 +79,20 @@ int pop(int array[], int t) {
    }
 }
 
-int push(int array[], int data, int t) {
+int push(int array[], int datoAgregar, int t) { //Esta funcion agrega un elemento a la pila
 
    if(!isfull(t)) {
       top[t] = top[t] + 1;   
-      array[top[t]] = data;
+      array[top[t]] = datoAgregar;
    } else {
       printf("Could not insert data, Stack is full.\n");
    }
 }
 
-int indexOf(int array[], int c) {
+int indexOf(int array[], int c) { //Esta funcion busca el numero c en array[]
     int pos = -1;
     int i;
-    for (i = 0; i < 2048 && pos == -1; i++)
+    for (i = 0; i < Marcos*tamanoPagina && pos == -1; i++)
     {
         if (array[i] == c) {
             pos = i;
@@ -87,9 +101,9 @@ int indexOf(int array[], int c) {
     return pos;
 }
 
-void setUsedTime(int toSet, int s)
+void setUsedTime(int toSet, int s) //Esta funcion se utiliza para cambiar el tiempo en el que ha sido usado un proceso. Utilizado en el agoritmo LRU.
 {
-  for(int i = 0; i < 128; i++)
+  for(int i = 0; i < Marcos; i++)
   {
      if(usedTime[i][0] == toSet)
      {
@@ -99,29 +113,26 @@ void setUsedTime(int toSet, int s)
   }  
 }
 
-void restartUsedTime(int toRestart)
+void restartUsedTime(int toRestart) //Esta funcion se utiliza para cambiar el tiempo de un proceso a 0, indicando que no se encuentra en memoria. Utilizado en el algoritmo LRU.
 {
   setUsedTime(toRestart, 0);
 }
 
-void incrementUsedTime()
+void incrementUsedTime() //Esta funcion incrementa el tiempo utilizado de todos los procesos que se encuentran en memoria por 1
 {
-  for(int i = 0; i < 128; i++)
+  for(int i = 0; i < Marcos; i++)
   {
-//     if(usedTime[i][0] == toIncrement)
-  //   {
         if(usedTime[i][1])
         {
           usedTime[i][1]++;
         }
-    // }
   }  
 }
 
-int whoIsFirst(int s1 ,int s2)
+int whoIsFirst(int s1 ,int s2)  //Cuando hay un empate en el algoritmo LRU se utiliza esta funcion para checar cual proceso entro primero, si el s1 o el s2
 {
   int first = 0;
-  for(int i = 0; i < 128; i++)
+  for(int i = 0; i < Marcos; i++)
   {
     if(entranceOrder[i] == s1)
     {
@@ -137,12 +148,12 @@ int whoIsFirst(int s1 ,int s2)
   return first;
 }
 
-int getLeastUsed(int toCheck)
+int getLeastUsed(int toCheck) //Esta funcion regresa el Least Recent Used para utilizarlo en el algoritmo LRU
 {
   int least = 0;
   int leastTime = 0;
   int lastLeast = 0;
-  for(int i = 0; i < 128; i++)
+  for(int i = 0; i < Marcos; i++)
   {
     if(usedTime[i][0])
     {
@@ -175,7 +186,7 @@ int getLeastUsed(int toCheck)
 
 
 
-void corrimientoS(int toSwap, int size)
+void corrimientoS(int toSwap, int size) //Como el area de swapping es continua, esta funcion se utiliza para recorrer los elementos del area de swapping despues de haber realizado un swap-out
 {
   int swapCount = 0;
   int move = 0;
@@ -197,10 +208,10 @@ void corrimientoS(int toSwap, int size)
   }
 }
 
-void swapIn(int toSwap, int size)
+void swapIn(int toSwap, int size) //Esta funcion realiza el proceso de swap-in
 {
     corrimientoS(toSwap, size);
-    for(int j = 0; j < 128; j++)
+    for(int j = 0; j < Marcos; j++)
     {
       if(tablaPaginasSwap[j][0] == toSwap)
       {
@@ -209,12 +220,12 @@ void swapIn(int toSwap, int size)
          break;
        }
      }
-     for(int i = 0; i < 128;i++)
+     for(int i = 0; i <Marcos;i++)
      {
       tablaPaginasSwap[i][0] = tablaPaginasSwap[i + 1][0]; 
       tablaPaginasSwap[i][1] = tablaPaginasSwap[i + 1][1];
      }
-  for(int i = 0; i  < 128; i++)
+  for(int i = 0; i  < Marcos; i++)
   {
      if(timeStamp[i][0] == toSwap)
      {
@@ -224,13 +235,13 @@ void swapIn(int toSwap, int size)
   totalSwapIn++;
 }
 
-void swapOut(int toSwap, int size)
+void swapOut(int toSwap, int size) //Esta funcion realiza el proceso de swap-out
 {
   int swapCount = 0;
   int toCompare = 0;
-  int paginaSwapeadas[128];
-  int direccionSwapeada[128];
-  int paginasAsignadas[128];
+  int paginaSwapeadas[Marcos];
+  int direccionSwapeada[Marcos];
+  int paginasAsignadas[Marcos];
   int paginasProcess = 0;
   if(!algRemplazo)
   {
@@ -248,22 +259,22 @@ void swapOut(int toSwap, int size)
      toCompare = getLeastUsed(toSwap);
   }
   int s = 0;
-    for(int i = 0; i < 2048;i++)
+    for(int i = 0; i < Marcos*tamanoPagina;i++)
     {
       if(M[i] == toCompare)
       {  
         if(s < size)
         {
          push(S, M[i], 0);
-         if(i % 16 == 0)
+         if(i % tamanoPagina == 0)
          {
-           for(int j = 0; j < 128; j++)
+           for(int j = 0; j < Marcos; j++)
            {
              if(!tablaPaginasSwap[j][0])
              {
                tablaPaginasSwap[j][0] = M[i];
-               tablaPaginasSwap[j][1] = i / 16;
-               paginaSwapeadas[swapCount] = i / 16 + 1;
+               tablaPaginasSwap[j][1] = i / tamanoPagina;
+               paginaSwapeadas[swapCount] = i / tamanoPagina + 1;
                direccionSwapeada[swapCount] = j;
                swapCount++;
                break;
@@ -295,11 +306,11 @@ void swapOut(int toSwap, int size)
       {
         M[i] = toSwap;
         swapCount++;
-        if(swapCount % 16 == 0)
+        if(swapCount % tamanoPagina == 0)
         {
-           paginasAsignadas[paginasProcess] = (i / 16) + 1;
-           tablaPaginasMemoria[i / 16][0] = toSwap;
-           tablaPaginasMemoria[i / 16][1] = swapCount / 16;
+           paginasAsignadas[paginasProcess] = (i / tamanoPagina) + 1;
+           tablaPaginasMemoria[i / tamanoPagina][0] = toSwap;
+           tablaPaginasMemoria[i / tamanoPagina][1] = swapCount / tamanoPagina;
            paginasProcess++;
         }
         if(swapCount >= size)
@@ -309,7 +320,7 @@ void swapOut(int toSwap, int size)
       }
       i++;
     }
-  for(int i = 0; i  < 128; i++)
+  for(int i = 0; i  < Marcos; i++)
   {
      if(timeStamp[i][0] == toSwap)
      {
@@ -337,9 +348,9 @@ void swapOut(int toSwap, int size)
   restartUsedTime(toCompare); 
 }
 
-void printMemory()
+void printMemory() //Esta funcion imprime la memoria utilizada para el debuggeo
 {
-  for(int i = 0; i < 2048; i++)
+  for(int i = 0; i < Marcos*tamanoPagina; i++)
   {
      if(!M[i])
      {
@@ -352,9 +363,9 @@ void printMemory()
   }
 }
 
-void printSwap()
+void printSwap() //Esta funcion imprime el area de swapping utilizada para el debuggeo
 {
-  for(int i = 0; i < 4096; i++)
+  for(int i = 0; i < Marcos*tamanoPagina*2; i++)
   {
      if(!S[i])
      {
@@ -368,21 +379,21 @@ void printSwap()
 }
 
 
-void P(int args[])
+void P(int args[]) //Esta funcion realiza la operacion P de asignacion de memoria el proceso indicado. Si el proceso ya se encuentra en memoria no hace nada, si el proceso no se encuentra en memoria pero si en el area de swapping entonces lo trae de regreso al area de memoria utilizando el algoritmo indicado
 {
-  int spacesNeeded = ((args[0] / 16) + (args[1] % 16 != 0)) - 1;
+  int spacesNeeded = ((args[0] / tamanoPagina) + (args[1] % tamanoPagina != 0)) - 1; //Indica cuantas paginas va a necesitar el proceso
   int i = 0;
   int contador = 0;
   int contAssign = 0;
-  int paginasAsignadas[128];
+  int paginasAsignadas[Marcos];
   int paginasProcess = 0;
-  if(indexOf(S, args[1]) >= 0)
+  if(indexOf(S, args[1]) >= 0) //En el caso de que el proceso se encuentre en el area de swapping
   {
-    push(entranceOrder, args[1], 1);
-    swapIn(args[1], args[0]);
-    swapOut(args[1], args[0]);
+    push(entranceOrder, args[1], 1); //Agrega el proceso al orden de entrada
+    swapIn(args[1], args[0]); //Realiza swap-in
+    swapOut(args[1], args[0]); //Realiza swap-out
   }
-  else if(indexOf(M, args[1]) < 0)
+  else if(indexOf(M, args[1]) < 0) //En el caso de que el proceso no se encuentre en memoria ni en el area de swapping, agrega el proceso a memoria
   {  
     timeStamp[totalProcess][0] = args[1];
     timeStamp[totalProcess][1] = 1;
@@ -392,9 +403,9 @@ void P(int args[])
     usedTime[totalProcess][1] = 1;
     totalProcess++;
 
-    if (spacesNeeded <= marcosLibres)
+    if (spacesNeeded <= marcosLibres) //Checa si hay espacio suficiente para el proceso
     {
-      push(entranceOrder, args[1], 1);
+      push(entranceOrder, args[1], 1); //Agrega el proceso al orden de entrada
       
       while(1)
       {
@@ -402,9 +413,9 @@ void P(int args[])
         if(!M[i])
         {
 	  M[i] = args[1];
-	  if(contador % 16 == 0)
+	  if(contador % tamanoPagina == 0)
 	  {
-            paginasAsignadas[paginasProcess] = (i / 16) + 1;
+            paginasAsignadas[paginasProcess] = (i / tamanoPagina) + 1;
 	    tablaPaginasMemoria[totalPaginas][0] = args[1];
 	    tablaPaginasMemoria[totalPaginas][1] = paginasProcess + 1;
             paginasProcess++;
@@ -429,22 +440,22 @@ void P(int args[])
         printf("\n");
       }
     }
-    else
+    else //Si no hay espacio suficiente para el proceso, libera espacio para poder colocarlo
     {
-      push(entranceOrder, args[1], 1);
-      swapOut(args[1], args[0]);
+      push(entranceOrder, args[1], 1); //Agrega el proceso al orden de entrada
+      swapOut(args[1], args[0]); //Realiza swap-out
     }
   }
   incrementUsedTime();
 }
 
-void A(int args[])
+void A(int args[]) //Realiza la operacion A de accesar memoria para ver o modificar la pagina indicada del proceso indicado. Si la pagina se encuentra en el area de swapping, la regresa a memoria
 {
   int counter = 0;
   int found = 0;
   int toCompare = 0;
   int toSwap = args[1];
-  int tablasPaginaRemplazo[128][2];
+  int tablasPaginaRemplazo[Marcos][2];
   int toCheck = 0;
   if(!algRemplazo)
   {
@@ -462,15 +473,15 @@ void A(int args[])
      toCompare = getLeastUsed(toSwap);
   }
   setUsedTime(toCompare, 1);
-  if(args[0] / 16 <= 0)
+  if(args[0] / tamanoPagina <= 0)
   {
      toCheck = 1;
   }
   else
   {
-     toCheck = args[0] / 16;
+     toCheck = args[0] / tamanoPagina;
   }
-  for(int i = 0; i < 128; i++)
+  for(int i = 0; i < Marcos; i++)
   {
     if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == toCheck)
     {
@@ -485,22 +496,19 @@ void A(int args[])
   }
   if(!found)
   {  
-    //swapIn(args[1], args[0]);
-    for(int i = 0; i < 128; i++)
+    for(int i = 0; i < Marcos; i++)
     {
       if(tablaPaginasSwap[i][0] == args[1] && tablaPaginasSwap[i][1] == toCheck)
       {
         found = 1;
-        for(int j = 0; j < 128; j++)
+        for(int j = 0; j < Marcos; j++)
         {
           if(tablaPaginasMemoria[j][0] == toCompare)
           {
-            //tablaPaginaRemplazo[j][0] = tablaPaginasMemoria[j][0]
-            //tablaPaginaRemplazo[j][1] = tablaPaginasMemoria[j][1]
             tablaPaginasMemoria[j][0] = tablaPaginasSwap[i][0];
             tablaPaginasMemoria[j][1] = tablaPaginasSwap[i][1];
             int k = 0;
-            for(k = 0; k < 16; k++)
+            for(k = 0; k < tamanoPagina; k++)
             {
                M[k+j] = tablaPaginasMemoria[j][0];
                S[i+k-1] = 0;
@@ -510,7 +518,7 @@ void A(int args[])
         }
       }
     }
-    for(int i = 0; i < 128; i++)
+    for(int i = 0; i < Marcos; i++)
     {
       tablaPaginasSwap[i][0] = tablaPaginasSwap[i + 1][0];
       tablaPaginasSwap[i][1] = tablaPaginasSwap[i + 1][1];
@@ -520,7 +528,7 @@ void A(int args[])
        }
     }
     totalSwapIn++;
-    for(int i = 0; i < 128; i++)
+    for(int i = 0; i < Marcos; i++)
   {
     if(tablaPaginasMemoria[i][0] == args[1] && tablaPaginasMemoria[i][1] == toCheck)
     {
@@ -540,7 +548,7 @@ void A(int args[])
   {
     printf("No se encontro al proceso %d en el memoria ni en el area de swapping\n", args[1]);
   }
-  for(int i = 0; i  < 128; i++)
+  for(int i = 0; i  < Marcos; i++)
   {
      if(timeStamp[i][0] == args[1])
      {
@@ -549,18 +557,19 @@ void A(int args[])
   }
 }
 
-void L(int toRemove)
+void L(int toRemove) //Libera el proceso tanto del area de memoria como del area de swapping
 {
   int removedCounter = 0;
-  for(int i = 0; i < 2048;i++)
+  //Libera los marcos de pagina ocupados por el proceso toRemove de memoria
+  for(int i = 0; i < Marcos*tamanoPagina;i++)
   {
     if(M[i] == toRemove)
     {
       M[i] = 0;
       removedCounter++;
-      if(removedCounter % 16 == 0)
+      if(removedCounter % tamanoPagina == 0)
       {
-        push(marcosLiberados, i / 16, 3);
+        push(marcosLiberados, i / tamanoPagina, 3);
       }
     }
   }
@@ -574,22 +583,24 @@ void L(int toRemove)
   {
     printf("No se encontro el proceso %d en memoria\n", toRemove);
   }
-
   while(!isempty(3))
   {
     printf(", %d", pop(marcosLiberados, 3) + 1);
     marcosLibres++;
   }
   printf("\n");
-  for(int i = 0; i < 4096;i++)
+//////////////////////////////////////////////////////////////////
+
+//Libera los marcos de pagina ocupados por el proceso toRemove del area de swapping
+  for(int i = 0; i < Marcos*tamanoPagina*2;i++)
   {
     if(S[i] == toRemove)
     {
       S[i] = 0;
       removedCounter++;
-      if(removedCounter % 16 == 0)
+      if(removedCounter % tamanoPagina == 0)
       {
-        push(marcosLiberados, i / 16, 3);
+        push(marcosLiberados, i / tamanoPagina, 3);
       }
     }
   }
@@ -611,49 +622,34 @@ void L(int toRemove)
     }
   }
   printf("\n");
+////////////////////////////////////////////////////////////////////////////////////
 }
 
-void F()
+void F()  //Esta funcion imprime estadisticas hasta el momento
 {
-  //print turnaround time
+  //print turnaround time promedio y page faults por proceso
    
-  for(int i = 0; i < 128; i++)
+  for(int i = 0; i < Marcos; i++)
   { 
     turnAroundPromedio += timeStamp[i][1];
     if(pageFaults[i][0])
     {
       printf("Total Page Faults for process %d: %d\n", pageFaults[i][0], pageFaults[i][1]);
-      //pageFaults[i][0] = 0;
-      //pageFaults[i][1] = 0;
     }
   }
   turnAroundPromedio /= totalProcess;
   printf("Turnaround promedio: %f\n", turnAroundPromedio);
   turnAroundPromedio = 0;
-  printf("Total Swap-out: %d\n", totalSwapOut);
-  printf("Total Swap-in: %d\n", totalSwapIn);
-  totalSwapOut = 0;
-  totalSwapIn = 0;
-  /*while(!isempty(0))
-  {
-    pop(S, 0);
-  }
-  while(!isempty(1))
-  {
-    pop(entranceOrder, 0);
-  }
-  while(!isempty(2))
-  {
-    pop(M, 0);
-  }*/
+////////////////////////////////////////////////////
+  printf("Total Swap-out: %d\n", totalSwapOut); //Imprime el numero total de swap-outs
+  printf("Total Swap-in: %d\n", totalSwapIn); //Imprime el numero total de swap-in
 }
 
-void E()
+void E() //Esta funcion indica que ya no se realizaran mas operaciones y libera todo
 {
   printf("Adios\n");
   end = 1;
-  marcosLibres = 128;
-  marcosLiberados[256];
+  marcosLibres = Marcos;
   bitRef = 0;
   while(!isempty(1))
   {
@@ -662,7 +658,7 @@ void E()
   totalPaginas = 0;
   for(int j = 0; j < 2; j++)
   {
-    for(int i = 0; i < 128; i++)
+    for(int i = 0; i < Marcos; i++)
     {
       tablaPaginasMemoria[i][j] = 0;
       tablaPaginasSwap[i][j] = 0;
@@ -671,11 +667,11 @@ void E()
       usedTime[i][j] = 0;
     }
   }
-  for(int i = 0; i < 2048;i++)
+  for(int i = 0; i < Marcos*tamanoPagina;i++)
   {
     M[i] = 0;
   }
-  for(int i = 0; i < 4096; i++)
+  for(int i = 0; i < Marcos*tamanoPagina*2; i++)
   {
     S[i] = 0;
   }
@@ -690,12 +686,11 @@ void E()
 
 }
 
-void menu(char message[])
+void menu(char message[]) //Utilizado para seleccionar la funcion a utilizar
 {
   if(!end)
   {
     char opr;
-    //scanf("%[^\n]%*c", message);
     int args[4];
     char *split = strtok(message," ");
     int i = 0;
@@ -731,7 +726,7 @@ void menu(char message[])
   }
 }
 
-void readFile()
+void readFile() //Utilizado para leer el archivoTrabajo-1.txt que es donde se encontraran las instrucciones a realizar
 {
     FILE * fp;
     char * line = NULL;
@@ -750,14 +745,13 @@ void readFile()
     fclose(fp);
     if (line)
         free(line);
-    //exit(EXIT_SUCCESS);
 }
 
-void main()
+void main() //Main
 {
   printf("Algoritmo FIFO\n");
   readFile();
-  algRemplazo = 1;
+  algRemplazo = 1; //Indica que ahora el algoritmo que se utilizara es el LRU
   end = 0;
   printf("Algoritmo LRU\n");
   readFile();
