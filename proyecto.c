@@ -440,10 +440,14 @@ void P(int args[]) //Esta funcion realiza la operacion P de asignacion de memori
         printf("\n");
       }
     }
-    else //Si no hay espacio suficiente para el proceso, libera espacio para poder colocarlo
+    else if(spacesNeeded <= Marcos*tamanoPagina) //Si no hay espacio suficiente para el proceso, libera espacio para poder colocarlo
     {
       push(entranceOrder, args[1], 1); //Agrega el proceso al orden de entrada
       swapOut(args[1], args[0]); //Realiza swap-out
+    }
+    else
+    {
+      printf("La memoria no es lo suficientemente grande para ese proceso\n");
     }
   }
   incrementUsedTime();
